@@ -119,7 +119,7 @@
 
                     var modified_substring = input_text.substring(start_pos, end_pos);
 
-                    modified_substring = aps2unicode( modified_substring );
+                    modified_substring = convert_APS_to_Unicode( modified_substring );
 
                     var processed_text = processed_text + modified_substring;
 
@@ -131,7 +131,7 @@
 
             } // end of initiate_conversion function
 
-            function aps2unicode( aps_input = "" )
+            function convert_APS_to_Unicode( aps_input = "" )
             {
                 var APS2Unicode_table = new Array(
                     /* Possible input errors */
