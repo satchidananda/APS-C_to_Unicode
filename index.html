@@ -1,0 +1,463 @@
+<!DOCTYPE html">
+
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en-US">
+    <head>
+        <meta http-equiv="content-type" charset="UTF-8"/>
+        <meta name="author" content="Department of Culture, UP"/>
+        <meta name="author" content="http://www.rkmveda.org/wp-content/uploads/2015/05/APS-C-DV-Prakash-to-Unicode-Converter.html"/>
+        <meta name="author" content="Sannyasins of BSY"/>
+	<meta name="description" content="The purpose of this tool is to convert text written with APS-C-DV-* fonts to Unicode encoding."/>
+
+        <link rel="shortcut icon" href="favicon.ico" type="image/x-icon"/>
+
+      	<title>APS-C-DV-X to Unicode Converter. Updated for YPT conversion.</title><br/>
+
+        <style type="text/css">
+            textarea {
+                width: 100%;
+                height: auto;
+                /* background-color: yellow; */
+                font-size: 2em;
+                font-weight: normal;
+                font-family: Verdana, Arial, Helvetica, sans-serif;
+                border: 1px solid black;
+            }
+
+            textarea.aps-text {
+                    font-family: "APS-C-DV-Priyanka", "APS-C-DV-Prakash", Verdana, Arial, Helvetica, sans-serif;
+            }
+
+            textarea.unicode-text {
+                    font-family: "Kokila", Verdana, Arial, Helvetica, sans-serif;
+            }
+
+        </style>
+
+        <script type="text/javascript">
+
+            // initial code taken from Department of Culture, UP site and then tweaked for non-commercial purpose
+            // new code taken from: http://www.rkmveda.org/wp-content/uploads/2015/05/APS-C-DV-Prakash-to-Unicode-Converter.html
+            // References: https://i.imgur.com/ICUC6Wk.png
+            /*	Additions:
+             1. Added replacement: "‚ããò" , "औं" ,
+             2. Added replacement: "æ" , "ॐ" ,
+             3. Added replacement: "¹Ç", "प्र्",
+             4. Added replacement: ". " , "। ",  // TODO: regular expression to possibly add space between last letter in sentence and adjancent full stop.
+             " . " , " । "
+             5. Added replacement: "éè","é",	// catch and correct possible double long I typing mistake
+             6. Added replacement: "èé","é",	// catch and correct possible double long I typing mistake
+             7. Added replacement: "èâ","é",	// replace long I + bindu with single character for that combo
+
+             TO-DO:
+             1. Check for other consanant + 'r' combos like "pr", e.g. "phr"
+             1.1. Update replacement logic as it fails for Roman script mixed with APS. Need to skip over areas of text that are in standard [A-Z] block.
+             2. Add option for converting numerals
+             3. Add option for choosing input box font (e.g. APS if available)
+             4. Add option for choosing output box fonts
+             5. Add default test data (e.g. from Wikipedia's Devanagari page)
+             6. Add option for setting/changing chunk_size from default (6000 chars)
+             7. Keep totals for number of replacements made to identify which code blocks aren't being used
+             8. Replace 2x single danda with single double danda character
+             9. Add option for scroll-sync
+             10. Add option for top/bottom vs side/side textarea positioning
+
+             */
+
+            function initiate_conversion( input_field_id = "aps_c_dv_text_input_field", output_field_id = "unicode_devanagari_text_output_field" )
+            {
+            	// Set default values for parameters
+                //if ( typeof( input_field_id ) === 'undefined' ) input_field_id = "aps_c_dv_text_input_field";
+                //if ( typeof( output_field_id ) === 'undefined' ) output_field_id = "unicode_devanagari_text_output_field";
+
+                // Get input
+                var input_field = document.getElementById( input_field_id );
+                var input_text = input_field.value;
+                var input_text_length = input_text.length;
+
+                // Display progress message in Unicode output textarea
+                var output_field = document.getElementById( output_field_id );
+                output_field.value = "Starting conversion...";
+
+                //****************************************************
+                //  Break the long text into small bunches of chunk_size  characters each.
+                //****************************************************
+
+
+                // processed_text: keeps running concatenation of converted input, starting with empty string
+                // chunk_size: (max) portion/length of input to be processed at a time
+                var chunk_size = 6000;
+                var processed_text = '';
+
+                var start_pos = 0;  		// start position of text to be processed
+                var end_pos = 0;  		// end position of text to be processed
+                var keep_going = 1;	// text processing continues until set to 0
+
+ 
+                // keep updating start and ending cursor positions as text gets process chunk_size at a time
+                while (keep_going == 1)
+                {
+                    // set start cursor position to (previous) ending cursor position
+                    start_pos = end_pos;
+
+                    // check if a whole chunk can be taken
+                    if (end_pos < (input_text_length - chunk_size))
+                    {
+                        // advance ending cursor position by chunk_size
+                        end_pos += chunk_size;
+
+                        // This was making problem if there is no 'space' in the whole document.
+                        // while (input_text.charAt ( end_pos ) != ' ') {end_pos--;}
+                    } else  // less than whole chunk left to process
+                    {
+                        // set ending cursor position to end of input
+                        end_pos = input_text_length;
+
+                        // set flag for ending processing (after this final run)
+                        keep_going = 0
+                    }
+
+
+                    var modified_substring = input_text.substring(start_pos, end_pos);
+
+                    modified_substring = convert_APS_to_Unicode( modified_substring );
+
+                    var processed_text = processed_text + modified_substring;
+
+                    output_field.value = "Conversion in progress.." + '\n\n' + 'Conversion of ' + end_pos + ' characters out of ' + input_text_length + ' completed.';
+
+                }
+
+                output_field.value = processed_text;
+
+            } // end of initiate_conversion function
+
+            function convert_APS_to_Unicode( aps_input = "" )
+            {
+                var APS2Unicode_table = new Array(
+                    /* Possible input errors */
+                    "ññ", "ñ", // "े"
+                    "éè", "é", // "é"  // double long I typing mistake for I + bindu
+                    "èé", "é", // "é" 	// double long I typing mistake for I + bindu
+                    "ââ", "â", // "ं"
+                    "ãèâ", "ãé", // "ीं" // replace long I + bindu with single character for that combo
+                    "ãâè", "ãé", // "ीं" // replace bindu + long I with single character for that combo
+                    "ýý", "॥", // "॥"  // replace 2x single danda with single double danda
+
+                    /* Numerals
+                     "1" , "१" ,	// "१"
+                     "2" , "२" ,	// "२"
+                     "3" , "३" ,	// "३"
+                     "4" , "४" ,	// "४"
+                     "5" , "५" ,	// "५"
+                     "6" , "६" ,	// "६"
+                     "7" , "७" ,	// "७"
+                     "8" , "८" ,	// "८"
+                     "9" , "९" ,	// "९"
+                     "0" , "०" ,	// "०"
+                     */
+
+                    /* Symbols */
+                    "æ", "ॐ", // "ॐ"
+
+                    /*  */
+                    "ü¡", "¡ü", // "ड़"
+                    "ü¤", "¤ü", // "ढ़"
+                    "ü", "़", // "़"
+                    "òŠ", "Šò", //"Šें"
+                    "îŠ", "Šî", // "Šू"
+                    "ñŠ", "Šñ", // "Šे"
+                    "õŠ", "Šõ", // "Šै"
+                    "âŠ", "Šâ", // "Šं" // duplicate
+                    "ìŠ", "Šì", // "Šु"
+                    "ðŠ", "Šð", // "Šृ"
+                    "ÆŠ", "ŠÆ", // "Š्र"
+                    "áŠ", "Šá", // "Š्"
+                    "ƒÃ", "ई", //  "ई"
+                    "¹Ç", "प्र्", //  "प्र्"
+
+                    //		"ãä" , "ि" ,		// "ि" // test
+                    "âãä", "MMMIII", // "ंि" // TODO: find a non-standard char as temp replacement holder
+                    "úãä", "úIII", // "ँि" // TODO: find a non-standard char as temp replacement holder
+                    "ãä", "ि", // "ि" // ORIG
+                    "â", "ं", // "ं"
+                    "¶ã", "न", //  "न"
+
+                    "ãå", "å", // "å"
+                    "ðð", "ॄ", // "ॄ"
+                    "ó", "ेê", // "ेर्"
+
+                    "Ä", "RRRâ", // "र्ं" // TODO: find a non-standard char as temp replacement holder
+
+                    "ãê", "ीRRR", // "ीर्" // TODO: find a non-standard char as temp replacement holder
+                    "ê", "RRR", // "र्" // TODO: find a non-standard char as temp replacement holder
+                    "ÃŠ", "ŠÃ", // "Šर्"
+                    "Ã", "RRR", // "र्" // TODO: find a non-standard char as temp replacement holder
+                    "ãó", "ोRRR", // "ोर्" // TODO: find a non-standard char as temp replacement holder
+                    //"âŠ" , "Šâ" ,	// "Šं"   // duplicate
+
+                    "È", "्र", // "्र"
+                    "¨ãÉ", "ऋ", // "ऋ"
+                    "í", "ु", // "ु"
+                    "Ôã", "स", // "स"
+                    "Êãð", "ऌ", // "ऌ"
+                    "Ë", "ल", // "ल"
+                    "É", "â", // "ं"
+                    "¾ã", "य", // "य"
+                    "‰ã‹", "क्र्", // "क्र्"
+
+                    "¨ãŠ", "‰ãŠ", // "क्र"
+                    "ãå‡ãŠ", "किं", // "किं"
+                    "‡ã‹", "क्", // "क्"
+                    "§ãŠ", "क्त", // "क्त"
+                    "ãé", "ीं", // "ीं"
+                    "‡ã‹Ìã", "‡ãŠáÌ", // "क्व्"
+                    "‰ãŠ", "‡ãŠáÀ", // "क्र"
+                    "‡ãŠ", "क", // "क"
+                    "¹ãŠ", "फ", // "फ"
+                    "ˆ", "व्न्", // "व्न्"
+                    "OE", "ख्", // "ख्" // added
+                    "Œ", "ख्", // "ख्"
+                    "", "ज्", // "ज्"
+                    "", "ज्ञ्", // "ज्ञ्"
+                    "•", "ज्", // "ज्"
+                    "–", "ज्र्", // "ज्र्"
+                    "—", "ज्ञ्", // "ज्ञ्"
+                    "™", "झ्र्", // "झ्र्"
+                    "š", "ञ्", // "ञ्"
+                    "›", "ट", // "ट"
+                    "oe", "छ", // "छ" // added
+                    "œ", "छ", // "छ"
+                    "Ÿ", "ठ", // "ठ"
+                    "¡", "ड", // "ड"
+                    "¢", "झ्", // "झ्"
+                    "£", "ध्", // "ध्"
+                    "¤", "ढ", // "ढ"
+                    "¥", "ण्", // "ण्"
+                    "¦ã", "त", // "त"
+                    "¦", "त्", // "त्"
+                    "§", "त्त्", // "त्त्"
+                    "©", "थ्", // "थ्"
+                    "ª", "द", // "द"
+                    "¬", "द्ग", // "द्ग"
+                    "­®", "द्ध", // "द्ध"
+                    "¯", "द्ब", // "द्ब"
+                    "°", "द्भ", // "द्भ"
+                    "±", "द्म्", // "द्म्"
+                    "²", "द्य्", // "द्य्"
+                    "³", "द्र", // "द्र"
+                    "´", "द्व", // "द्व"
+
+                    "¶", "न्", // "न्"
+                    "¸", "न्न्", // "न्न्"
+                    "¹", "प्", // "प्"
+                    "º", "ब्", // "ब्"
+                    "¼ã", "भ", // "भ"
+                    "¼", "भ", // "भ"
+                    "½", "म्", // "म्"
+                    "¾", "य्", // "य्"
+                    "À", "र", // "र"
+                    "Á", "रु", // "रु"
+                    "Â", "रू", // "रू"
+                    "Ê", "ल्", // "ल्"
+                    "Ë", "ळ", // "ळ"
+                    "Í", "श्", // "श्"
+                    "Î", "श्", // "श्"
+                    "Ï", "श्", // "श्"
+                    "Ð", "ख्र्", // "ख्र्"
+                    "Ñ", "श्र्", // "श्र्"
+                    "Ò", "दृ", // "दृ"
+                    "Ó", "ष्", // "ष्"
+                    "Ô", "स्", // "स्"
+                    "Õ", "स्र्", // "स्र्"
+                    "Ö", "ह", // "ह"
+                    "×", "हृ", // "हृ"
+                    "Ø", "ग्", // "ग्"
+                    "Ù", "ह्", // "ह्"
+                    "Ú", "ह्म्", // "ह्म्"
+                    "Ü", "घ्", // "घ्"
+                    "Ý", "ङ", // "ङ"
+                    "Þ", "च्", // "च्"
+                    "ß", "ळ", // "ळ"
+                    "àã", "क्ष", // "क्ष"
+                    "à", "क्ष्", // "क्ष्"
+
+                    "¨", "त्र्", // "त्र्"
+                    "®", "द्ध", // "द्ध"
+                    "Æ", "्र", // "्र"
+                    "‡ã", "व", // "व"
+                    "Ì", "व्", // "व्"
+                    "‡", "व्", // "व्"
+                    "‚ããñ", "ओ", // "ओ"
+                    "‚ããõ", "औ", // "औ"
+                    "‚ããò", "औं", // "औं"
+                    "‚ãã", "आ", // "आ"
+                    "‚ã", "अ", // "अ"
+                    "¿ã", "्य", // "्य"
+                    "ãÄ", "RRRâ", // "र्ं" // TODO: find a non-standard char as temp replacement holder
+                    "ƒ", "इ", // "इ"
+                    "…", "ऊ", // "ऊ"
+                    "„", "उ", // "उ"
+                    "†ñ", "ऐ", // "ऐ"
+                    "†", "ए", // "ए"
+                    "्ã", "", // ""
+                    "ãõ", "ौ", // "ौ"
+                    "ãñ", "ो", // "ो"
+                    "ñ", "े", // "े"
+                    "ãè", "ी", // "ी"
+                    "ì", "ु", // "ु"
+                    "î", "ू", // "ू"
+                    "ò", "ें", // "ें"
+                    "ö", "ैं", // "ैं"
+                    "ãे", "ो", // "ो"
+                    "ãै", "ौ", // "ौ"
+                    "â", "ं", // "ं"
+                    "ç", "ऽ", // "ऽ"
+                    "á", "्", // "्"
+                    "ý", "।", // "।"
+                    "ð", "ृ", // "ृ"
+                    "‡", "व", // "व"
+                    "õ", "ै", // "ै"
+                    "Ûã", "ह्य", // "ह्य"
+                    "Û", "ह्", // "ह्"
+                    "त्रÉ", "ऋ", // "ऋ"
+                    "ÿ", "द्द", // "द्द"
+                    "ह्ो", "ह्ये", // "ह्ये"
+
+                    "ã÷", "ौRRR", // "ौर्" // TODO: find a non-standard char as temp replacement holder
+                    "÷", "ैRRR", // "ैर्" // TODO: find a non-standard char as temp replacement holder
+                    "ú", "ँ", // "ँ"
+                    "`", "'", // "'"
+                    "ǔ", "ॄ", // "ॄ"
+                    "ãã", "ा", // "ा"
+                    " :", " CccOooLllOooNnn", // " :" // mark colon punctuation for later replacement
+                    ":", "ः", // "ः"
+                    "ã", "ा", // "ा"
+                    ". ", "। ", // "। "  // TODO: regular expression to possibly add space between last letter in sentence and adjancent full stop.
+
+                ); // end Array::APS2Unicode_table
+            
+                var APS2Unicode_table_length = APS2Unicode_table.length;
+
+                //substitute array_two elements in place of corresponding APS2Unicode_table elements
+
+                if (aps_input !== "")  // if string to be converted is non-blank then no need of any processing.
+                {
+                    // traverse through conversion table by APS and Unicode replacement pairs
+                    for (input_symbol_idx = 0; input_symbol_idx < APS2Unicode_table_length - 1; input_symbol_idx = input_symbol_idx + 2)
+                    {
+                        //******************************************************
+                        idx = 0;  // index of the symbol being searched for replacement
+
+                        // keep making replacements to current APS char as long as it is found in current chunk
+                        while (idx !== -1) //while-00
+                        {
+                            aps_find_token = APS2Unicode_table[ input_symbol_idx ];
+                            uni_replace_token = APS2Unicode_table[ input_symbol_idx + 1 ];
+                            // TODO: check if this string function only makes first/single replacement or all/mass replacements in given string, in which case while loop may not be needed
+                            aps_input = aps_input.replace(aps_find_token, uni_replace_token);
+                            idx = aps_input.indexOf(aps_find_token);
+
+                        } // end of while-00 loop
+
+                    } // end of for loop
+
+                    aps_input = aps_input.replace(/([ंँ])([ािीुूृेैोौ])/g, "$2$1");
+
+                    aps_input = aps_input.replace(/([ंँ])्र/g, "्र$1");
+
+                    //rem changing व to क  and प to फ etc
+
+                    aps_input = aps_input.replace(/‡([ुूृॄेैंँर्]*)Š/g, "क$1");
+
+                    //aps_input = aps_input.replace( /‡/g , "क"   );
+
+                    /*
+
+                     aps_input = aps_input.replace( /प([ुूृॄेैंँर्]*)§/g , "फ$1"   );
+
+                     //aps_input = aps_input.replace( /प्र([ुूृॄेैंँ]*)§/g , "फ्र$1"   );
+
+                     aps_input = aps_input.replace( /रं§/g , "रुं"   );
+
+                     aps_input = aps_input.replace( /§/g , ""   );
+
+                     aps_input = aps_input.replace( /([ुूृॄेैंँर्]*)Π/g , "़$1"   );
+
+                     */
+
+                    // following statements for adjusting postion of i maatraas.
+
+                    //			aps_input = aps_input.replace( /ä/g   ,  "ि" ) ;	// moved up to top
+
+                    aps_input = aps_input.replace(/([å])([कखगघङचछजझञटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])/g, "$2िं");
+
+                    aps_input = aps_input.replace(/([ं])([्])([कखगघङचछजझञटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])/g, "$2$3ं");
+
+                    aps_input = aps_input.replace(/([ि])([कखगघङचछजझञटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])/g, "$2$1");
+
+                    aps_input = aps_input.replace(/([ि])([्])([कखगघङचछजझञटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])/g, "$2$3$1");
+
+                    aps_input = aps_input.replace(/ä/g, "ि");
+
+
+                    // TODO: use temp replacement characters that are unlikely to be in the document so that intermixed Roman characters A/b/c don't get converted inadvertently
+                    // following three statement for adjusting position of reph ie, half r
+
+                    aps_input = aps_input.replace(/([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])([्])([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])RRR/g, "र्$1$2$3");
+
+                    aps_input = aps_input.replace(/([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])RRR/g, "र्$1");
+
+                    aps_input = aps_input.replace(/([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])([ािीुूृेैोौंँः])RRR/g, "RRR$1$2");
+
+                    aps_input = aps_input.replace(/([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])([्])RRR/g, "RRR$1$2");
+
+                    aps_input = aps_input.replace(/RRR/g, "र्");
+
+                    //			aps_input = aps_input.replace( /(III)([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])([्])/g, "$2$3$1" ) ;
+
+                    //			aps_input = aps_input.replace( /(III)([कखगघचछजझटठडड़ढढ़णतथदधनपफबभमयरलळवशषसहक्षज्ञ])/g, "$2III" ) ;
+
+                    aps_input = aps_input.replace(/III/g, "ि");
+
+                    aps_input = aps_input.replace(/MMM/g, "ं");
+
+                    aps_input = aps_input.replace(/CccOooLllOooNnn/g, ":");
+
+                } // end of IF  statement  meant to  supress processing of  blank  string.
+
+                return aps_input;
+            } // end of the function  convert_APS_to_Unicode
+
+        </script>
+    </head>
+
+    <body>
+    	<main>
+            <header>
+                <strong>Hari Om. This tool is for converting APC-C-DV font input into Unicode. <br/>
+                To use:<br/>
+                1. Copy text APS text from original document <br/>
+                2. Paste into top field ("APS-C-DV-X font text box")<br/>
+                3. Press "Convert to Unicode" button. This should produce Unicode text in field below the button ("Unicode Devanagari text-box")<br/>
+                4. Copy converted Unicode text and place in your desired document using any Unicode font (e.g. Kokila, Mangal, Arial, ...)<br/>
+                <br/>
+                If you see any conversion errors, bugs or issues, please keep copy of sample APS text and inform Satchidananda or Sw. Shivadhyanam.<br/>
+                <br/>
+                Om Tat Sat.<br/>
+                <br/>
+                v20180321
+                </strong><br/><br/>
+            </header>
+
+            <form name="form1"><br/>
+                <b>APS-C-DV-X font text-box </b><br/>
+                <textarea class="aps-text devanagari-text" id="aps_c_dv_text_input_field" name="TextToConvert" placeholder="Paste here your text in any APS-C-DV font" cols="92" rows="12"></textarea>
+                <br/><br/>
+                <input id="converter" name="converter" value=" Convert to Unicode &gt;&gt; " onclick="initiate_conversion();" accesskey="c" title="शॉर्टकट alt+c" type="button">
+                <br/><br/>
+                <b>Unicode Devanagari text-box</b> <br/>
+                <textarea class="unicode-text devanagari-text" id="unicode_devanagari_text_output_field" name="ConvertedText" placeholder="Conversion out put will be shown here" cols="92" rows="12"></textarea>
+            </form>
+    </main>
+</body>
+</html>
